@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Album Keeper</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+/* ────────────────── Global layout ────────────────── */
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  background:#fafafa;
+  color:#222;
+}
+header {
+  background:#4a90e2;
+  color:#fff;
+  padding:1rem;
+  text-align:center;
+  font-size:1.6rem;
+  font-weight:600;
+}
+.container {
+  max-width:960px;
+  margin:0 auto;
+  padding:1rem;
+}
+button, select, input, textarea {
+  font-family: inherit;
+}
+
+/* ────────────────── Controls ────────────────── */
+.controls {
+  display:flex;
+  flex-wrap:wrap;
+  gap:0.5rem;
+  margin-bottom:1rem;
+}
+.controls button {
+  background:#4a90e2;
+  border:none;
+  color:#fff;
+  padding:.5rem 1rem;
+  border-radius:4px;
+  cursor:pointer;
+}
+.controls button:hover { background:#357ab8; }
+.controls select {
+  padding:.4rem;
+  border-radius:4px;
+  border:1px solid #ccc;
+}
+
+/* ────────────────── Album cards ────────────────── */
+.grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill, minmax(200px,1fr));
+  gap:1rem;
+}
+.card {
+  background:#fff;
+  border-radius:8px;
+  box-shadow:0 2px 5px rgba(0,0,0,.1);
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.card img {
+  width:100%;
+  height:180px;
+  object-fit:cover;
+  background:#eaeaea;
+}
+.card .info {
+  padding:.8rem 1rem;
+  flex:1;
+}
+.card .info h3 { margin:0; font-size:1.1rem; }
+.card .info p { margin:.3rem 0; color:#555; font-size:.9rem; }
+.card .info .stars { margin:.4rem 0; }
+.card .actions {
+  display:flex;
+  justify-content:space-between;
+  border-top:1px solid #eee;
+}
+.card .actions button {
+  flex:1;
+  border:none;
+  background:none;
+  padding:.6rem;
+  cursor:pointer;
+}
+.card .actions button:hover { background:#f7f7f7; }
+
+/* ────────────────── Rating stars (read‑only) ────────────────── */
+.stars {
+  display:inline-block;
+  font-size:0;
+}
+.stars span {
+  font-size:20px;
+  color:#ffb400;
+  cursor:default;
+}
+
+/* ────────────────── Modal (Add / Edit) ────────────────── */
+#modalOverlay {
+  position:fixed;
+  inset:0;
+  background:rgba(0,0,0,.5);
+  display:none;
+  align-items:center;
+  justify-content:center;
+  z-index:1000;
+}
+#modal {
+  background:#fff;
+  border-radius:8px;
+  max-width:500px;
+  width:90%;
+  padding:1.2rem;
+  box-shadow:0 4px 12px rgba(0,0,0,.2);
+}
+#modal h2 { margin-top:0; }
+#modal form { display:flex; flex-direction:column; gap:.8rem; }
+#modal label { font-weight:600; }
+#modal input[type=text],
+#modal textarea,
+#modal input[type=file] {
+  width:100%;
+  padding:.4rem;
+  border:1px solid #ccc;
+  border-radius:4px;
+}
+#modal .rating-input {
+  display:flex;
+  gap:.2rem;
+}
+.rating-input .star {
+  font-size:1.8rem;
+  color:#ccc;
+  cursor:pointer;
+}
+.rating-input .star.selected,
+.rating-input .star:hover,
+.rating-input .star:hover ~ .star { color:#ffb400; }
+
+#modal button {
+  background:#4a90e2;
+  color:#fff;
+  border:none;
+  padding:.5rem 1rem;
+  border-radius:4px;
+  cursor:pointer;
+}
+#modal button:hover { background:#357ab8; }
+</style>
+</head>
+<body>
+<header>Album Keeper</header>
+
+<div class="container">
+  <div class="controls">
+    <button id="addBtn">Add Album</button>
+
+    <select id="sortSelect">
+      <option value="date">Newest first</option>
+      <option value="title">Title (A‑Z)</option>
+      <option value="artist">Artist (A‑Z)</option>
+      <option value="rating">Rating (high → low)</option>
+    </select>
+
+    <button id="exportBtn">Export JSON</button>
+    <input type="file" id="importFile" accept=".json" style="display:none;">
+    <button id="importBtn">Import JSON</button>
+  </div>
+
+  <div id="grid" class="grid"></div>
+</div>
+
+<!-- ────────────────── Modal (Add / Edit) ────────────────── -->
+<div id="modalOverlay">
+  <div id="modal">
+    <h2 id="modalTitle">Add Album</h2>
+    <form id="albumForm">
+      <label for="title">Title *</label>
+      <input type="text" id="title" required>
+
+      <label for="artist">Artist *</label>
+      <input type="text" id="artist" required>
+
+      <label>Rating *</label>
+      <div class="rating-input" id="ratingInput">
+        <span class="star" data-value="5">★</span>
+        <span class="star" data-value="4">★</span>
+        <span class="star" data-value="3">★</span>
+        <span class="star" data-value="2">★</span>
+        <span class="star" data-value="1">★</span>
+      </div>
+
+      <label for="notes">Notes (optional)</label>
+      <textarea id="notes" rows="3"></textarea>
+
+      <label for="cover">Cover image (optional)</label>
+      <input type="file" id="cover" accept="image/*">
+
+      <div style="text-align:right; margin-top:.8rem;">
+        <button type="button" id="cancelBtn" style="background:#777;">Cancel</button>
+        <button type="submit" id="saveBtn">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+/* ────────────────── Data handling (localStorage) ────────────────── */
+const STORAGE_KEY = 'albumKeeperData';
+let albums = [];               // in‑memory copy
+let editId = null;             // if we are editing an existing album
+
+function loadFromStorage() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  albums = raw ? JSON.parse(raw) : [];
+}
+function saveToStorage() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(albums));
+}
+
+/* ────────────────── UI rendering ────────────────── */
+function render() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  albums.forEach(album => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    // ---- image ----
+    const img = document.createElement('img');
+    img.src = album.cover || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjE4MCIgdmlld0JveD0iMCAwIDIwMCAxODAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxODAiIGZpbGw9IiNlYWVhZWEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZmlsbD0iI2NjY2NjYyIHRleHQtYW5jaG9yPSJtaWRkbGUiIGZvbnQtZmFtaWx5PSJzYW5zLXNlcmlmIiBmb250LXNpemU9IjI0Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=';
+    card.appendChild(img);
+    // ---- info ----
+    const info = document.createElement('div');
+    info.className = 'info';
+    const title = document.createElement('h3');
+    title.textContent = album.title;
+    const artist = document.createElement('p');
+    artist.textContent = album.artist;
+    const rating = document.createElement('div');
+    rating.className = 'stars';
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement('span');
+      s.textContent = i <= Math.round(album.rating) ? '★' : '☆';
+      rating.appendChild(s);
+    }
+    info.appendChild(title);
+    info.appendChild(artist);
+    info.appendChild(rating);
+    card.appendChild(info);
+    // ---- actions ----
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    const editBtn = document.createElement('button');
+    editBtn.textContent = '✏️ Edit';
+    editBtn.addEventListener('click', () => openModal('edit', album.id));
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '🗑️ Delete';
+    delBtn.addEventListener('click', () => {
+      if (confirm(`Delete "${album.title}"?`)) {
+        albums = albums.filter(a => a.id !== album.id);
+        saveToStorage();
+        render();
+      }
+    });
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    card.appendChild(actions);
+
+    grid.appendChild(card);
+  });
+
+  // If there are no albums, show a friendly message
+  if (!albums.length) {
+    grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; color:#777;">
+      No albums yet – click “Add Album” to start.
+    </p>`;
+  }
+}
+
+/* ────────────────── Modal (Add / Edit) ────────────────── */
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const albumForm = document.getElementById('albumForm');
+const titleInput = document.getElementById('title');
+const artistInput = document.getElementById('artist');
+const notesInput = document.getElementById('notes');
+const coverInput = document.getElementById('cover');
+const ratingStars = document.querySelectorAll('#ratingInput .star');
+
+function openModal(mode, id = null) {
+  editId = null;
+  // Reset fields
+  albumForm.reset();
+  ratingStars.forEach(s => s.classList.remove('selected'));
+
+  if (mode === 'edit') {
+    const album = albums.find(a => a.id === id);
+    if (!album) return;
+    editId = id;
+    modalTitle.textContent = 'Edit Album';
+    titleInput.value = album.title;
+    artistInput.value = album.artist;
+    notesInput.value = album.notes || '';
+    // rating stars
+    ratingStars.forEach(s => {
+      if (+s.dataset.value <= Math.round(album.rating)) s.classList.add('selected');
+    });
+  } else {
+    modalTitle.textContent = 'Add Album';
+  }
+  modalOverlay.style.display = 'flex';
+}
+function closeModal() {
+  modalOverlay.style.display = 'none';
+}
+document.getElementById('addBtn').addEventListener('click', () => openModal('add'));
+document.getElementById('cancelBtn').addEventListener('click', closeModal);
+modalOverlay.addEventListener('click', e => {
+  if (e.target === modalOverlay) closeModal();
+});
+
+/* ────────────────── Rating stars (click) ────────────────── */
+ratingStars.forEach(star => {
+  star.addEventListener('click', () => {
+    const value = +star.dataset.value;
+    ratingStars.forEach(s => {
+      if (+s.dataset.value <= value) s.classList.add('selected');
+      else s.classList.remove('selected');
+    });
+  });
+});
+
+/* ────────────────── Form submit (add / update) ────────────────── */
+albumForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const title = titleInput.value.trim();
+  const artist = artistInput.value.trim();
+  const notes = notesInput.value.trim();
+  const rating = ratingStars.filter(s => s.classList.contains('selected')).length;
+  // read image (if any)
+  let coverData = null;
+  if (coverInput.files && coverInput.files[0]) {
+    coverData = await readFileAsDataURL(coverInput.files[0]);
+  } else if (editId) {
+    // keep existing image when editing and not changing it
+    const existing = albums.find(a => a.id === editId);
+    coverData = existing?.cover || null;
+  }
+
+  if (editId) {
+    // UPDATE
+    const idx = albums.findIndex(a => a.id === editId);
+    if (idx !== -1) {
+      albums[idx] = {
+        ...albums[idx],
+        title,
+        artist,
+        notes,
+        rating,
+        cover: coverData,
+        updatedAt: Date.now()
+      };
+    }
+  } else {
+    // CREATE
+    const newAlbum = {
+      id: Date.now(),
+      title,
+      artist,
+      notes,
+      rating,
+      cover: coverData,
+      addedAt: Date.now()
+    };
+    albums.push(newAlbum);
+  }
+
+  saveToStorage();
+  render();
+  closeModal();
+});
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = e => reject(e);
+    reader.readAsDataURL(file);
+  });
+}
+
+/* ────────────────── Sorting ────────────────── */
+document.getElementById('sortSelect').addEventListener('change', e => {
+  const v = e.target.value;
+  if (v === 'title') {
+    albums.sort((a, b) => a.title.localeCompare(b.title));
+  } else if (v === 'artist') {
+    albums.sort((a, b) => a.artist.localeCompare(b.artist));
+  } else if (v === 'rating') {
+    albums.sort((b, a) => a.rating - b.rating); // high → low
+  } else { // date (newest first)
+    albums.sort((b, a) => a.addedAt - b.addedAt);
+  }
+  render();
+});
+
+/* ────────────────── Export / Import JSON ────────────────── */
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const dataStr = JSON.stringify(albums, null, 2);
+  const blob = new Blob([dataStr], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'albums.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('importFile').click();
+});
+document.getElementById('importFile').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const imported = JSON.parse(ev.target.result);
+      if (Array.isArray(imported)) {
+        // naive merge – you could add duplicate handling if you wish
+        albums = imported.concat(albums);
+        // optional: deduplicate by ID if the imported data already has IDs
+        const seen = new Set();
+        albums = albums.filter(a => {
+          if (seen.has(a.id)) return false;
+          seen.add(a.id);
+          return true;
+        });
+        saveToStorage();
+        render();
+        alert('Import successful!');
+      } else {
+        throw new Error('Invalid format');
+      }
+    } catch (err) {
+      alert('Failed to import JSON: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+/* ────────────────── Initial load ────────────────── */
+loadFromStorage();
+render();
+
+/* ────────────────── Optional: Service Worker registration (offline after first load) ────────────────── */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js')
+    .catch(err => console.warn('SW registration failed: ', err));
+}
+</script>
+</body>
+</html>
