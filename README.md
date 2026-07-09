@@ -1,4 +1,4 @@
-# my-albums
+# album-keeper
 
 A tiny offline‑first web app that lets you store the albums you’ve listened to,
 rate them and keep a cover image. All data lives in the browser’s
