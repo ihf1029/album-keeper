@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>Album Keeper 다운로드</title>
+<style>
+  body {font-family: Arial, Helvetica, sans-serif; text-align:center; margin-top:4rem;}
+  button {
+    background:#4a90e2; color:#fff; border:none; border-radius:5px;
+    padding:.7rem 1.4rem; font-size:1.1rem; cursor:pointer;
+  }
+  a {text-decoration:none;}
+</style>
+</head>
+<body>
+<h1>📀 Album Keeper</h1>
+<p>버튼을 눌러 앱 파일을 Android 기기에 저장하세요.</p>
+
+<a id="dlLink" href="album_keeper.html" download="album_keeper.html">
+    <button>앱 다운로드</button>
+</a>
+
+<!--  (선택) 바로 다운로드를 시작하고 싶다면 아래 스크립트를 켜세요)  -->
+<script>
+/*  // Uncomment the block below if you want the download to start automatically
+document.addEventListener('DOMContentLoaded', () => {
+  const a = document.getElementById('dlLink');
+  a.click();        // 자동 클릭 → 파일 바로 다운로드
+});
+*/
+</script>
+</body>
+</html>
